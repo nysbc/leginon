@@ -39,8 +39,8 @@ numpy = ">=1.8.2"
 
 [metadata]
 lock-version = "1.1"
-python-versions = "2.7.18"
-content-hash = "ebadf62c00fd529aa016e9277ba1dd7651d988ab4c36be6b4879c63e1ccdde2e"
+python-versions = "^2.7.5"
+content-hash = "3f6f4fa7ec494dbffa642f70faad6f605bf3401fcefadf1086e18df40a1abece"
 
 [metadata.files]
 numpy = [
