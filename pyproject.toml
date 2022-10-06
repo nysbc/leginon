@@ -12,7 +12,7 @@ scipy = "^1.2.3"
 pillow = "^6.2.2"
 pymysql = "^0.10.1"
 attrdict = "^2.0.1"
-wxpython = "2.6.3.3"
+wxpython = "4.0.0"
 
 [tool.poetry.dev-dependencies]
 
