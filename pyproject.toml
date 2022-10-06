@@ -4,7 +4,6 @@ version = "0.1.0"
 description = ""
 authors = ["semcit <semcit@nysbc.org>"]
 
-# sudo apt install libgtk-3-dev
 [tool.poetry.dependencies]
 python = "2.7.18"
 numpy = "^1.16.6"
@@ -12,7 +11,7 @@ scipy = "^1.2.3"
 pillow = "^6.2.2"
 pymysql = "^0.10.1"
 # attrdict = "^2.0.1"
-wxpython = "2.8.12"
+# wxpython = "2.8.12"
 
 [tool.poetry.dev-dependencies]
 
