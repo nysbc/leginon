@@ -1,0 +1,11 @@
+#!/bin/bash
+set -u
+set -e
+
+echo "= update to version: $1"
+
+git fetch --all
+git reset --hard "$1"
+git clean -fd
+
+echo "= ok"
