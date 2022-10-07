@@ -3,4 +3,4 @@
 
 cd /opt/leginon-manager
 source .venv/bin/activate
-python ./start.py
+python start.py "$@"
