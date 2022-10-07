@@ -1,0 +1,3 @@
+alias c=clear
+alias rx="cd /opt/redux; clear"
+alias v="/opt/redux/sbin/version"
