@@ -2,4 +2,5 @@
 # set -x
 
 cd /opt/leginon-manager
-/usr/local/bin/poetry run python ./start.py
+source .venv/bin/activate
+python ./start.py
