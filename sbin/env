@@ -5,3 +5,4 @@ root=/opt/leginon-manager
 alias c=clear
 alias r='cd $root; clear'
 alias v='$root/sbin/version'
+alias s="git status"
