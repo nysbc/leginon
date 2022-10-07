@@ -4,7 +4,6 @@
 base=/opt/leginon-manager
 
 # shellcheck disable=SC1090
-# turn on venv
 source "$base"/.venv/bin/activate
 
 # python = $base/.venv/bin/python
