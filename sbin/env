@@ -1,5 +1,7 @@
+#!/bin/bash
+
 root=/opt/leginon-master
 
 alias c=clear
-alias r="cd $root; clear"
-alias v="$root/sbin/version"
+alias r='cd $root; clear'
+alias v='$root/sbin/version'
