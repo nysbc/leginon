@@ -1,6 +1,10 @@
 #!/bin/bash
 # set -x
 
-cd /opt/leginon-manager
-source .venv/bin/activate
-python start.py "$@"
+$base=/opt/leginon-manager
+
+# turn on venv
+source "$base"/.venv/bin/activate
+
+# python = $base/.venv/bin/python
+python "$base"/start.py "$@"
