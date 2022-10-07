@@ -1,3 +1,5 @@
+root=/opt/leginon-master
+
 alias c=clear
-alias rx="cd /opt/redux; clear"
-alias v="/opt/redux/sbin/version"
+alias r="cd $root; clear"
+alias v="$root/sbin/version"
