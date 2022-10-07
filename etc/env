@@ -1,0 +1,3 @@
+site=/usr/lib64/python2.7/site-packages
+
+export PYTHONPATH=$site/gtk-2.0:$site/wx-2.8-gtk2-unicode

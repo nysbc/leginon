@@ -6,5 +6,8 @@ base=/opt/leginon-manager
 # shellcheck disable=SC1090
 source "$base"/.venv/bin/activate
 
+# need to break formation to load wxpython :/
+source "$base"/etc/env
+
 # python = $base/.venv/bin/python
 python "$base"/start.py "$@"
