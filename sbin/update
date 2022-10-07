@@ -2,10 +2,12 @@
 set -u
 set -e
 
-echo "= update to version: $1"
+version="${1:-origin/main}"
 
+echo "= update to version: $version"
+exit
 git fetch --all
-git reset --hard "$1"
+git reset --hard "$version"
 git clean -fd
 
 echo "= ok"
