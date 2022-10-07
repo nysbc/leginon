@@ -1,9 +1,10 @@
 #!/bin/bash
 # set -x
 
-$base=/opt/leginon-manager
+base=/opt/leginon-manager
 
 # turn on venv
+# shellcheck disable=SC1090
 source "$base"/.venv/bin/activate
 
 # python = $base/.venv/bin/python
