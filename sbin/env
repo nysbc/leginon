@@ -1,6 +1,6 @@
 #!/bin/bash
 
-root=/opt/leginon-master
+root=/opt/leginon-manager
 
 alias c=clear
 alias r='cd $root; clear'
