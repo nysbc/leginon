@@ -1,0 +1,10 @@
+base=/opt/leginon-manager
+
+# shellcheck disable=SC1090
+source "$base"/.venv/bin/activate
+
+site27=/usr/lib64/python2.7/site-packages
+
+# need to break formation to load wxpython :/
+export PYTHONPATH=$site27/gtk-2.0:$site27/wx-2.8-gtk2-unicode
+
