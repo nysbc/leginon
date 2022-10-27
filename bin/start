@@ -5,5 +5,4 @@ set -u; set -e
 # shellcheck disable=SC1090
 source "$(dirname "${BASH_SOURCE[0]}")/_env"
 
-# python = $base/.venv/bin/python
-python "${base:?}"/start.py "$@"
+python leginon/start.py "$@"

@@ -1,11 +1,20 @@
 #!/bin/bash
 
-base=/opt/leginon-manager
+src=$(realpath "$0")
+csd=$(dirname "$src")
+# root directory
+cd "$(dirname "$csd")"
 
-# shellcheck disable=SC1090
-source "$base"/.venv/bin/activate
+# shellcheck source=/dev/null
+source .venv/bin/activate
 
-# need to break formation to load wxpython :/
+# echo "NOTICE: leginon cwd is [$(pwd)]" 1>&2
+
+# because leginon.* is referenced from within itself :/ 
+PYTHONPATH="$(pwd)"
+
+# need to break formation to load wxpython
 site27=/usr/lib64/python2.7/site-packages
-export PYTHONPATH=$site27/gtk-2.0:$site27/wx-2.8-gtk2-unicode
+PYTHONPATH=$PYTHONPATH:$site27/gtk-2.0:$site27/wx-2.8-gtk2-unicode
 
+export PYTHONPATH
