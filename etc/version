@@ -1,1 +1,1 @@
-8038f1dae refs #13470 same change for non-gif K3 as in the change in 3.6
+9094fba5d refs #13751 make grid loading wait for preset changed event
