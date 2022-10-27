@@ -6,4 +6,4 @@ set -u; set -e
 source "$(dirname "${BASH_SOURCE[0]}")/_env"
 
 # python = $base/.venv/bin/python
-python "${base:?}"/leginon/launcher.py "$@"
+python "${base:?}"/launcher.py "$@"
