@@ -37,10 +37,18 @@ python-versions = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*"
 [package.dependencies]
 numpy = ">=1.8.2"
 
+[[package]]
+name = "slack"
+version = "0.0.2"
+description = "a DI container"
+category = "main"
+optional = false
+python-versions = "*"
+
 [metadata]
 lock-version = "1.1"
 python-versions = "^2.7.5"
-content-hash = "3f6f4fa7ec494dbffa642f70faad6f605bf3401fcefadf1086e18df40a1abece"
+content-hash = "6c4aa3673ac0da0a6e2059859831b2d98c39858cc1d2ce356634d557f3b1880c"
 
 [metadata.files]
 numpy = [
@@ -134,3 +142,4 @@ scipy = [
     {file = "scipy-1.2.3-cp37-cp37m-win_amd64.whl", hash = "sha256:53353a504ad2181eb27c9d61e91ce29324f8b7550876736a08a36e6b60c43407"},
     {file = "scipy-1.2.3.tar.gz", hash = "sha256:ecbe6413ca90b8e19f8475bfa303ac001e81b04ec600d17fa7f816271f7cca57"},
 ]
+slack = []
