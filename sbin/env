@@ -6,8 +6,10 @@ poetry=/usr/local/bin/poetry
 
 alias c=clear
 alias r="cd $root; clear"
-alias v="$root/sbin/version"
 
+alias ls="\ls -F"
+
+alias ver="$root/sbin/version"
 alias s="git status"
 
 alias p="$poetry"
