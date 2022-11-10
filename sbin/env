@@ -6,9 +6,11 @@ PS1="= [\u@\h :: \w] "
 root=/opt/leginon-manager
 poetry=/usr/local/bin/poetry
 
+alias ..="cd .."
 alias c=clear
 alias r="cd $root; clear"
 
+alias l="\ls -F"
 alias ls="\ls -F"
 alias ll="\ls -l -F"
 
