@@ -10,6 +10,7 @@ alias c=clear
 alias r="cd $root; clear"
 
 alias ls="\ls -F"
+alias ll="\ls -l -F"
 
 alias ver="$root/sbin/version"
 alias s="git status"
