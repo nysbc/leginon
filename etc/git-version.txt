@@ -1,1 +1,1 @@
-647a94c94 numextension: set version to 1.0.0
+af88d08b9 syscheck: add a numextension check
