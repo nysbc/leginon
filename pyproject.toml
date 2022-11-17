@@ -10,7 +10,7 @@ numpy = "^1.16.6"
 scipy = "^1.2.3"
 pillow = "^6.2.2"
 pymysql = "^0.10.1"
-slack = "^0.0.2"
+slackclient = "1.0.0"
 
 [tool.poetry.dev-dependencies]
 
