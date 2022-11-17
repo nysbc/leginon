@@ -10,6 +10,6 @@ git fetch --all
 git reset --hard "$version"
 git clean -fd
 
-git pack-refs
+# git pack-refs
 
 echo "= ok"
