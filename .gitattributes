@@ -4,5 +4,6 @@
 /bin export-ignore
 .venv export-ignore
 /modules export-ignore
+/slack export-ignore
 poetry.lock export-ignore
 pyproject.toml export-ignore
