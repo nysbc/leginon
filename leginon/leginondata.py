@@ -8,7 +8,7 @@ import leginonconfig
 import sinedon.newdict
 import sinedon.data
 import os
-from pyami import weakattr, fileutil
+from pyami import weakattr
 import projectdata
 
 Data = sinedon.data.Data
@@ -89,8 +89,7 @@ class SessionData(Data):
 			('comment', str),
 			('holder', GridHolderData),
 			('hidden', bool),
-			('uid', int),
-			('gid', int),
+			('remote passcode', str),
 		)
 	typemap = classmethod(typemap)
 
@@ -697,19 +696,11 @@ class ImageData(InSessionData):
 		)
 	typemap = classmethod(typemap)
 
-	def getpath(self, read=True):
-		'''return image path for this image. Local cache is first checked if read is True.
-			Define environment variable LEGINON_READONLY_IMAGE_PATH and rsync
-			the global image path under it.
-		'''
+	def getpath(self):
+		'''return image path for this image'''
 		try:
 			impath = self['session']['image path']
 			impath = leginonconfig.mapPath(impath)
-			if read:
-				# access cache
-				fullname = fileutil.getExistingCacheFile(impath, self.filename())
-				if fullname:
-					impath = os.path.dirname(fullname)
 		except:
 			raise
 			impath = os.path.abspath(os.path.curdir)
@@ -720,7 +711,7 @@ class ImageData(InSessionData):
 		create a directory for this image file if it does not exist.
 		return the full path of this directory.
 		'''
-		impath = self.getpath(read=False)
+		impath = self.getpath()
 		leginonconfig.mkdirs(impath)
 		return impath
 
@@ -1419,9 +1410,8 @@ class ScoreSquareFinderPrefsData(InSessionData):
 	def typemap(cls):
 		return InSessionData.typemap() + (
 			('image', MosaicImageData),
-			('filter-min', float),
-			('filter-max', float),
-			('filter-key', str),
+			('area-min', float),
+			('area-max', float),
 		)
 	typemap = classmethod(typemap)
 
@@ -1774,24 +1764,9 @@ class TemplateTargetFinderSettingsData(IceTargetFinderSettingsData):
 		)
 	typemap = classmethod(typemap)
 
-class JAHCFinderSettingsData(TemplateTargetFinderSettingsData):
+class HoleFinderSettingsData(TemplateTargetFinderSettingsData):
 	def typemap(cls):
 		return TemplateTargetFinderSettingsData.typemap() + (
-			('template diameter', int),
-			('file diameter', int),
-			('template filename', str),
-			('template invert', bool),
-			('template image min', float),
-			('lattice extend', str),
-			('template multiple', int),
-			('multihole angle', float),
-			('multihole spacing', float),
-		)
-	typemap = classmethod(typemap)
-
-class HoleFinderSettingsData(JAHCFinderSettingsData):
-	def typemap(cls):
-		return JAHCFinderSettingsData.typemap() + (
 			('edge lpf', LowPassFilterSettingsData),
 			('edge', bool),
 			('edge type', str),
@@ -1799,6 +1774,7 @@ class HoleFinderSettingsData(JAHCFinderSettingsData):
 			('edge log sigma', float),
 			('edge absolute', bool),
 			('edge threshold', float),
+			('template rings', list),
 		)
 	typemap = classmethod(typemap)
 
@@ -1827,6 +1803,21 @@ class HoleDepthFinderSettingsData(TargetFinderSettingsData):
 			('blobs min size', int),
 			('pickhole radius', float),
 			('pickhole zero thickness', float),
+		)
+	typemap = classmethod(typemap)
+
+class JAHCFinderSettingsData(TemplateTargetFinderSettingsData):
+	def typemap(cls):
+		return TemplateTargetFinderSettingsData.typemap() + (
+			('template diameter', int),
+			('file diameter', int),
+			('template filename', str),
+			('template invert', bool),
+			('template image min', float),
+			('lattice extend', str),
+			('template multiple', int),
+			('multihole angle', float),
+			('multihole spacing', float),
 		)
 	typemap = classmethod(typemap)
 
@@ -1861,7 +1852,7 @@ class DTFinderSettingsData(TargetFinderSettingsData):
 
 class RasterFinderSettingsData(TargetFinderSettingsData):
 	def typemap(cls):
-		return IceTargetFinderSettingsData.typemap() + (
+		return TargetFinderSettingsData.typemap() + (
 			('publish polygon', bool),
 			('image filename', str),
 			('raster preset', str),
@@ -1877,6 +1868,20 @@ class RasterFinderSettingsData(TargetFinderSettingsData):
 			('raster limit asymm', int),
 			('raster symmetric', bool),
 			('select polygon', bool),
+			('ice box size', float),
+			('ice thickness', float),
+			('ice min mean', float),
+			('ice max mean', float),
+			('ice max std', float),
+			('ice min std', float),
+			('focus interval', int),
+			('focus convolve', bool),
+			('focus convolve template', list),
+			('focus constant template', list),
+			('focus one', bool),
+			('acquisition convolve', bool),
+			('acquisition convolve template', list),
+			('acquisition constant template', list),
 		)
 	typemap = classmethod(typemap)
 
@@ -1933,7 +1938,7 @@ class RegionFinderSettingsData(TargetFinderSettingsData):
 		)
 	typemap = classmethod(typemap)
 
-class BlobFinderSettingsData(SettingsData):
+class BlobFinderSettingsData(Data):
 	def typemap(cls):
 		return SettingsData.typemap() + (
 			('on', bool),
@@ -1950,12 +1955,11 @@ class BlobFinderSettingsData(SettingsData):
 		)
 	typemap = classmethod(typemap)
 
-class TargetGroupingSettingsData(SettingsData):
+class TargetGroupingSettingsData(Data):
 	def typemap(cls):
 		return SettingsData.typemap() + (
 			('total targets', int),
 			('classes', int),
-			('group method', str),
 		)
 	typemap = classmethod(typemap)
 
@@ -1976,9 +1980,8 @@ class TopScoreFinderSettingsData(SettingsData):
 			('scoring script', str),
 			('target grouping', TargetGroupingSettingsData),
 			('target multiple', int),
-			('filter-min', float),
-			('filter-max', float),
-			('filter-key', str),
+			('area-min', float),
+			('area-max', float),
 		)
 	typemap = classmethod(typemap)
 
@@ -2045,7 +2048,7 @@ class MosaicSectionFinderSettingsData(ClickTargetFinderSettingsData,
 		return typemap
 	typemap = classmethod(typemap)
 
-class MosaicQuiltFinderSettingsData(JAHCFinderSettingsData):
+class MosaicQuiltFinderSettingsData( JAHCFinderSettingsData):
 	def typemap(cls):
 		typemap = JAHCFinderSettingsData.typemap()
 		typemap += (
@@ -3061,11 +3064,6 @@ class BufferCyclerSettingsData(ConditionerSettingsData):
 		)
 	typemap = classmethod(typemap)
 
-class ColdFegFlasherSettingsData(ConditionerSettingsData):
-	def typemap(cls):
-		return ConditionerSettingsData.typemap()
-	typemap = classmethod(typemap)
-
 class AutoFillerSettingsData(ConditionerSettingsData):
 	def typemap(cls):
 		return ConditionerSettingsData.typemap() + (
@@ -3149,7 +3147,6 @@ class BufferHostData(DigitalCameraData):
 			('buffer hostname', str),
 			('buffer base path', str),
 			('disabled', bool),
-			('append full head', bool),
 		)
 	typemap = classmethod(typemap)
 

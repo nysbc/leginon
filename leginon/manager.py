@@ -27,8 +27,6 @@ from pyami import mysocket
 # autotask
 from leginon import autotask
 
-from sinedon import directq
-
 import socket
 from wx import PyDeadObjectError
 import gui.wx.Manager
@@ -119,7 +117,6 @@ class Manager(node.Node):
 		self.mosaic_target_receiver = None
 		self.auto_atlas_done = threading.Event()
 		self.auto_done = threading.Event()
-		self.preset_changed = threading.Event()
 		# manager pause
 		self.pausable_nodes = []
 		self.paused_nodes = []
@@ -153,7 +150,6 @@ class Manager(node.Node):
 		self.addEventInput(event.ManagerPauseEvent, self.handleManagerPause)
 		self.addEventInput(event.ManagerContinueEvent, self.handleManagerContinue)
 		# this makes every received event get distributed
-		self.addEventInput(event.PresetChangedEvent, self.handlePresetChangedEvent)
 		self.addEventInput(event.Event, self.distributeEvents)
 
 		self.launcherdict = {}
@@ -816,14 +812,6 @@ class Manager(node.Node):
 				out = event.ContinueEvent()
 				self.sendManagerNotificationEvent(to_node, out)
 
-	def handlePresetChangedEvent(self, ievent):
-		"""
-		Intercept PresetChangedEvent to allow autoscreen grid loading wait
-		for its completion.
-		"""
-		self.preset_changed.set()
-		self.distributeEvents(ievent)
-
 	def _addPausableNode(self, nodename):
 		if nodename not in self.pausable_nodes:
 			self.pausable_nodes.append(nodename)
@@ -910,7 +898,7 @@ class Manager(node.Node):
 		self.timer = threading.Timer(timeout,self.slackTimeoutNotification)
 		self.timer.start()
 		if self.timer_debug:
-			print('timer restarted with timeout set to %.0f sec' % timeout)
+			print 'timer started with timeout set to %.0f sec' % timeout
 
 	# Node Error Notification
 	def handleNodeLogError(self, ievent):
@@ -925,10 +913,9 @@ class Manager(node.Node):
 		nodename = ievent['node']
 		if isinstance(ievent, event.ActivateNotificationEvent):
 			self.tem_host = ievent['tem_host']
-			if not ievent['silent']:
-				self.timeout_minutes = ievent['timeout_minutes']
-				msg = '%.1f minutes timeout and error notification is activated' % (self.timeout_minutes)
-				self.slackNotification(msg)
+			self.timeout_minutes = ievent['timeout_minutes']
+			msg = '%.1f minutes timeout and error notification is activated' % (self.timeout_minutes)
+			self.slackNotification(msg)
 			# reset
 			self.notifyerror = True
 			# first allow timer to restart, if was set to false by completing a timeout
@@ -1004,8 +991,12 @@ class Manager(node.Node):
 							hiddens.append(appname)
 						else:
 							apps[appname] = app
-		#	adding hidden apps from history when show_hidden is False is removed
-		# to improve the speed.
+		if not show_hidden:
+			history, map = self.getApplicationHistory()
+			for appname in history:
+				if appname not in apps:
+					app = application.Application(self, name=appname)
+					apps[appname] = app
 		appnames = apps.keys()
 		appnames.sort()
 		orderedapps = ordereddict.OrderedDict()
@@ -1018,16 +1009,13 @@ class Manager(node.Node):
 		Get application prefix list to filter for history. Defined in leginon/leginon_session.cfg
 		'''
 		try:
-			affixlist = moduleconfig.getConfigured('leginon_session.cfg', 'leginon', True)['app'][affix_type]
+			affixlist = moduleconfig.getConfigured('leginon_session.cfg', 'leginon')['app'][affix_type]
 			if type(affixlist) == type(2):
 				# single entry integer is translated to integer, not list of string
 				affixlist = ['%d' % affixlist]
 			if type(affixlist) == type(''):
 				# single entry is translated to string, not list of string
-				if affixlist == '':
-					affixlist = []
-				else:
-					affixlist = [affixlist]
+				affixlist = [affixlist]
 		except IOError:
 			affixlist = []
 		except KeyError:
@@ -1037,118 +1025,41 @@ class Manager(node.Node):
 			raise ValueError('unknown application %s error: %s' % (affix_type,str(e)))
 		return affixlist
 
-	def _getAppNamesFromPrefix(self, f):
-		'''
-		Use direct mysql query to return prefix application names.
-		'''
-		q = " SELECT name from ApplicationData where name like '%s%%'; " % (f,)
-		results = directq.complexMysqlQuery('leginondata',q)
-		return list(set(map((lambda x: x['name']),results)))
-
-	def _getAppNamesFromPostfix(self, f):
-		'''
-		Use direct mysql query to return postfix application names.
-		'''
-		q = " SELECT name from ApplicationData where name like '%%%s'; " % (f,)
-		results = directq.complexMysqlQuery('leginondata',q)
-		return list(set(map((lambda x: x['name']),results)))
-
-	def _getLaunchedApplicationByName(self, appname=''):
-		'''
-		Return most recent launched application data by user,
-		90 day limit, and application name.
-		'''
-		t0=time.time()
-		app = leginondata.ApplicationData(hide=False, name=appname)
-		initializer = {'session': leginondata.SessionData(user=self.session['user']),
-					'application': app}
-		lappdata = leginondata.LaunchedApplicationData(initializer=initializer)
-		lappdatalist = self.research(lappdata, timelimit='-90 0:0:0',results=1)
-		return lappdatalist
-
-	def _getPrefixUserLaunchedApplications(self, prefixlist):
-		'''
-		Return launched spplication results by prefix list, session user,
-		and time limit.
-		'''
-		lappdatalist = []
-		for f in prefixlist:
-			names = self._getAppNamesFromPrefix(f)
-			names = list(filter((lambda x: x not in self.apnames), names))
-			for n in names:
-				apps = self._getLaunchedApplicationByName(appname=n)
-				if apps:
-					lappdatalist.extend(apps) # only one item in apps
-					self.apnames.append(n)
-		return lappdatalist
-
-	def _getPostfixUserLaunchedApplications(self, postfixlist):
-		'''
-		Return launched application results by postfix list, session user,
-		and time limit.
-		'''
-		lappdatalist = []
-		for f in postfixlist:
-			names = self._getAppNamesFromPostfix(f)
-			names = list(filter((lambda x: x not in self.apnames), names))
-			for n in names:
-				apps = self._getLaunchedApplicationByName(appname=n)
-				if apps:
-					lappdatalist.extend(apps) # only one item in apps
-					self.apnames.append(n)
-		return lappdatalist
-
-	def _getSessionLaunchedApplications(self):
-		lappdatalist_long = leginondata.LaunchedApplicationData(session=self.session).query()
-		lappdatalist=[]
-		for lapp in lappdatalist_long:
-			name = lapp['application']['name']
-			if name not in self.apnames:
-				self.apnames.append(name)
-				lappdatalist.append(lapp)
-		return lappdatalist
-
 	def getApplicationHistory(self):
-		t0 = time.time()
+		initializer = {'session': leginondata.SessionData(user=self.session['user']),
+										'application': leginondata.ApplicationData()}
+		appdata = leginondata.LaunchedApplicationData(initializer=initializer)
+		appdatalist = self.research(appdata, timelimit='-90 0:0:0')
 		prefixlist = self.getApplicationAffixList('prefix')
 		postfixlist = self.getApplicationAffixList('postfix')
-		lappdatalist = []
-		self.apnames = []
-		# keep session history
-		session_lappdatalist = self._getSessionLaunchedApplications()
-		session_history = list(self.apnames)
-		# faster if prefix or postfix is set when the same applications were
-		# used by the same user many times.
-		if prefixlist:
-			lapps = self._getPrefixUserLaunchedApplications(prefixlist,)
-			lappdatalist.extend(lapps)
-		if postfixlist:
-			lapps = self._getPostfixUserLaunchedApplications(postfixlist)
-			lappdatalist.extend(lapps)
-		if not lappdatalist:
-			# slow er method get all application names and then filter.
-			apnames = self.getApplicationNames()
-			apnames = list(filter((lambda x: x not in self.apnames), apnames))
-			for n in apnames:
-				lapps = self._getLaunchedApplicationByName(appname=n)
-				if lapps:
-					lappdatalist.extend(lapps) # only one item in apps
-		# reverse sort by dbid so that the most recent is at the front
-		history_ids = list(map((lambda x: x.dbid), lappdatalist))
-		history_ids.sort()
-		# keep session_history at front of the final list
-		session_history_ids = list(map((lambda x:x.dbid), session_lappdatalist))
-		session_history_ids.reverse()
-		history_ids.extend(session_history_ids)
-		history_ids.reverse()
-		# contruct final history
-		amap = {}
 		history = []
-		for lid in history_ids:
-			l = leginondata.LaunchedApplicationData().direct_query(lid)
-			n = l['application']['name']
-			history.append(n)
-			amap[n] = l['launchers']
+		amap = {}
+		for a in appdatalist:
+			name =  a['application']['name']
+			if a['application']['hide']:
+				continue
+			if prefixlist:
+				# filter by prefix
+				found_prefix = False
+				for prefix in prefixlist:
+					if name.startswith(str(prefix)):
+						found_prefix = True
+						break
+				if not found_prefix:
+					continue
+			if postfixlist:
+				# filter by prefix
+				found_postfix = False
+				for postfix in postfixlist:
+					if name.endswith(str(postfix)):
+						found_postfix = True
+						break
+				if not found_postfix:
+					continue
+			# add to history
+			if name not in history:
+				history.append(name)
+				amap[name] = a['launchers']
 		return history, amap
 
 	def onApplicationStarting(self, name, nnodes):
@@ -1220,13 +1131,6 @@ class Manager(node.Node):
 					break
 		return auto_class_aliases
 
-	def getFirstPresetName(self):
-		try:
-			r = leginondata.PresetData(session=sessiondata, number=0).query(results=1)
-			return r[0]['name']
-		except:
-			return 'gr'
-
 	def autoStartApplication(self, task='atlas'):
 		'''
 		Experimental automatic start of application.
@@ -1236,21 +1140,15 @@ class Manager(node.Node):
 		node_name = self.auto_class_aliases['PresetsManager']
 		if node_name is None:
 			return
+		# TODO How to know instruments are ready?
+		# simulator pause
+		time.sleep(2)
 		ievent = event.ChangePresetEvent()
-		preset_name = self.getFirstPresetName()
-		ievent['name'] = preset_name
+		# TODO determine which preset name to set.
+		ievent['name'] = 'gr'
 		ievent['emtarget'] = None
 		ievent['keep image shift'] = False
-		# pass node name as manager to acquire lock.  This allows it to
-		# go through 3 trials with waiting.
-		ievent['node'] = 'manager'
-		self.preset_changed.clear()
-		# refs Issue #13751
-		# ChangePresetEvent can not really wait. We only know that it
-		# is finished with PresetsManager send PresetChangedEvent.
 		self.outputEvent(ievent, node_name, wait=True, timeout=None)
-		# wait for instrument set to the preset before start loading.
-		self.preset_changed.wait()
 		# load grid
 		node_name = self.auto_class_aliases['TEMController']
 		if node_name is not None:
@@ -1266,17 +1164,9 @@ class Manager(node.Node):
 			ievent['grid'] = None
 			ievent['stagez'] = self.autostagez
 			self.outputEvent(ievent, node_name, wait=False, timeout=None)
-		# let square finder node knows what the task is.
-		for class_name in self.square_finder_class_names:
-			node_name = self.auto_class_aliases[class_name]
-			if node_name is not None:
-				ievent = event.NotifyTaskTypeEvent()
-				ievent['task'] = task
-				self.outputEvent(ievent, node_name, wait=False, timeout=None)
 		self.auto_atlas_done.clear()
-		# Listen to atlas finished
+		# TODO: Listen to atlas finished
 		self.auto_atlas_done.wait()
-		#
 		if task == 'full':
 			#submit auto square target and move on.
 			class_names = filter((lambda x: self.auto_class_aliases[x] is not None), self.square_finder_class_names)
@@ -1298,12 +1188,8 @@ class Manager(node.Node):
 			self.autoStartApplication(self.auto_task)
 		else:
 			# finishing
-			current_timeout = self.timeout_minutes + 0
-			self.cancelTimeoutTimer()
+			self.timeout_minutes = 0
 			self.slackTimeoutNotification('autotasks all finished')
-			# refs #12775 prevent autorun
-			self.autorun = False
-			self.notifyerror = False
 
 	def killApplication(self):
 		self.cancelTimeoutTimer()
@@ -1311,8 +1197,6 @@ class Manager(node.Node):
 		self.timer = None
 		self.application.kill()
 		self.application = None
-		# refs #12775 need to reset so it does not broadcase while launching new app or node.
-		self.broadcast = []
 		self.onApplicationKilled()
 
 	def loadApp(self, name):

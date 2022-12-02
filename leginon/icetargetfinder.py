@@ -17,7 +17,6 @@ import ice
 import instrument
 import os.path
 import math
-import numpy
 import gui.wx.IceTargetFinder
 import version
 import itertools
@@ -76,7 +75,6 @@ class IceTargetFinder(targetfinder.TargetFinder):
 
 		self.foc_counter = itertools.count()
 		self.foc_activated = False
-		self.lattice_matrix = self.hf.lattice_matrix
 
 		if self.__class__ == IceTargetFinder:
 			self.start()
@@ -181,7 +179,7 @@ class IceTargetFinder(targetfinder.TargetFinder):
 		# self.hf['holes'] has holestats such as hole_mean but not i0-related values
 		orig_holes = self.hf['holes']
 		self.filterIce(input_name='holes')
-		self.focus_hole = None
+		self.focus_hole_index = None
 		focus_points = self.filterIceForFocus()
 		if self.settings['target template']:
 			focus_points = self.handleTemplate(focus_points)
@@ -225,7 +223,7 @@ class IceTargetFinder(targetfinder.TargetFinder):
 		'''
 		return focus_points using hole2 statistics.
 		'''
-		self.focus_hole = None # The good StatsHole used for making focus point if any.
+		self.focus_hole_index = None
 		# calculate ice thickness with good holes saved in holes2
 		goodholes = self.hf['holes2']
 		centers = self.blobCenters(goodholes)
@@ -245,23 +243,18 @@ class IceTargetFinder(targetfinder.TargetFinder):
 			onehole = self.settings['focus hole']
 			if centers and onehole != 'Off':
 				## if only one hole, this is useless
-				if len(allcenters) < 2 and onehole != 'Center':
+				if len(allcenters) < 2:
 					self.logger.info('need more than one hole if you want to focus on one of them')
 					centers = []
 				elif onehole == 'Center':
-					# Center can sometimes use prior info to guess a focus
-					try:
-						focus_points.append(self.centerCarbon(allcenters))
-					except ValueError as e:
-						# ok not to have focus position some times.
-						self.logger.warning(e)
-						centers = []
+					focus_points.append(self.centerCarbon(allcenters))
 				elif onehole == 'Any Hole':
 					fochole, index = self.focus_on_hole(centers, allcenters, True)
 					focus_points.append(fochole)
 					if index is not False:
 						# used one of the good hole since there was no bad ones
-						self.focus_hole = self.hf['holes2'].pop(index)
+						self.hf['holes2'].pop(index)
+						self.focus_hole_index = index
 				elif onehole == 'Good Hole':
 					if len(centers) < 2:
 						self.logger.info('need more than one good hole if you want to focus on one of them')
@@ -271,7 +264,9 @@ class IceTargetFinder(targetfinder.TargetFinder):
 						fochole, index = self.focus_on_hole(centers, centers, True)
 						focus_points.append(fochole)
 						if index is not False:
-							self.focus_hole = self.hf['holes2'].pop(index)
+							self.hf['holes2'].pop(index)
+							self.focus_hole_index = index
+
 		if not self.settings['filter ice on convolved']:
 			self.logger.info('Holes with good ice: %s' % (len(centers),))
 		return focus_points
@@ -299,8 +294,7 @@ class IceTargetFinder(targetfinder.TargetFinder):
 		and ice filtering. Input focus_points are pre-existing ones.  The
 		returned focus_points includes both pre-existing and convolved ones.
 		'''
-		convolved_holes2 = self._makeConvolvedHoles2('focus','holes',None)
-		# extending existing focus_points with convolved ones
+		convolved_holes2 = self._makeConvolvedHoles2('focus')
 		focus_points = self._holesToCenters(convolved_holes2, focus_points)
 		if len(focus_points) > 1 and self.settings['focus template thickness']:
 			# need just one focus point
@@ -319,11 +313,11 @@ class IceTargetFinder(targetfinder.TargetFinder):
 		and ice filtering.  Results are saved in holes2
 		'''
 		if self.settings['filter ice on convolved']:
-			self._makeConvolvedHoles2('acquisition','holes',self.focus_hole)
+			self._makeConvolvedHoles2('acquisition','holes')
 			self.iceOnConvolved() # results in holes2
 		else:
 			self.hf.filter_good('holes')
-			self._makeConvolvedHoles2('acquisition','holes2',self.focus_hole)
+			self._makeConvolvedHoles2('acquisition','holes2')
 		return
 
 	def _getStatsKeys(self):
@@ -332,19 +326,18 @@ class IceTargetFinder(targetfinder.TargetFinder):
 		'''
 		return []
 
-	def _makeConvolvedHoles2(self,acq_type='acquisition', input_name='holes', excluding_hole=None):
+	def _makeConvolvedHoles2(self,acq_type='acquisition', input_name='holes'):
 		'''
-		Convolve the template with holes to save as holes2, excluding the hole
-		used in deriving the focus. Return the centers as
+		Convolve template with holes to save as holes2. Return the centers as
 		(x,y) points
 		'''
 		if self.settings['target template']:
-			# target templat are x,y instead of row,col
+		# takes x,y instead of row,col
 			setting_name = '%s template' % acq_type
 			# conolve_config conv_vect needs (row, col)
 			vect = self.hf.swapxy(self.settings[setting_name])
 			self.hf.configure_convolve(conv_vect=vect)
-			self.hf.make_convolved(input_name, excluding_hole)
+			self.hf.make_convolved(input_name)
 		goodholes = self.hf['holes2']
 		return goodholes
 
@@ -366,48 +359,22 @@ class IceTargetFinder(targetfinder.TargetFinder):
 			self.logger.info('Potential targets with stats: %d' % n_holes_before)
 		self.filterIce(input_name='holes2')
 
-	def centerCarbonWithoutLattice(self, points):
+	def centerCarbon(self, points):
 		'''
 		Return xy tuple half-way between the xypoint closest to the center.
 		Minimum of two points as input.
 		'''
 		if len(points) < 2:
-			raise ValueError('Only one hole. Can not guess focus position')
+			raise ValueError('need at least two points to center on carbon in between.')
 		temppoints = list(points)
 		# centerhole is removed from temppoints during focus_on_hole
-		centerhole, index = self.focus_on_hole(temppoints, temppoints, True)
-		centerhole2, index = self.focus_on_hole(temppoints, temppoints, True)
+		centerhole, index = self.focus_on_hole(temppoints, temppoints, False)
+		centerhole2, index = self.focus_on_hole(temppoints, temppoints, False)
 		centercarbon = tuple(
 			(int((centerhole[0] + centerhole2[0])/2.0),
 			int((centerhole[1] + centerhole2[1])/2.0),)
 		)
 		return centercarbon
-
-	def centerCarbon(self, points):
-		'''
-		Return xy tuple half-way between the lattice points closest to the center.
-		Minimum of two points as input.
-		'''
-		if type(self.hf.lattice_matrix) != type(None):
-			self.lattice_matrix = self.hf.lattice_matrix
-		if type(self.lattice_matrix) == type(None):
-			self.logger.warning('No lattice matrix found. Use non-lattice method')
-			return self.centerCarbonWithoutLattice(points)
-		imshape = self.hf['original'].shape
-		center_point = imshape[1]//2,imshape[0]//2
-		cpoints = []
-		for p in points:
-			for sign in [(1,1),(-1,1),(1,-1),(-1,-1)]:
-				ij = sign[0]*0.5, sign[1]*0.5
-				dot_p = self.lattice_matrix.dot(ij)
-				#lattice_matrix is in (row,col) while points in x,y
-				c = numpy.array(p)+ numpy.array((dot_p[1],dot_p[0]))
-				cpoints.append((int(c[0]),int(c[1])))
-		if len(points) <= 2:
-			closest, focus_index =  self.closestToPoint(cpoints, center_point, True)
-			return closest
-		centerhole, index = self.focus_on_hole(cpoints, cpoints, True)
-		return centerhole
 
 	def centroid(self, points):
 		## find centroid

@@ -1,1 +1,1 @@
-af88d08b9 syscheck: add a numextension check
+bb476bbab refs #12177 set default and check attribute

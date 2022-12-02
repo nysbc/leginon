@@ -18,9 +18,7 @@ class Tile(object):
 
 class Mosaic(object):
 	def __init__(self):
-		# This will be set to a float number once getMosaicImage is called
-		# with maxdimension is input
-		self.scale = None
+		self.scale = 1.0
 
 		self.targetlist = []
 
@@ -321,9 +319,6 @@ class EMTile(Tile):
 
 class EMMosaic(object):
 	def __init__(self, calibrationclient):
-		# This will be set to a float number once getMosaicImage is called
-		# with maxdimension is input
-		self.scale = None
 		self.setCalibrationClient(calibrationclient)
 		self.clear()
 

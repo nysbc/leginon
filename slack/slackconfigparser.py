@@ -11,7 +11,6 @@ def getSlackConfig(printfiles=False):
 	confdirs = pyami.fileutil.get_config_dirs()
 	conf_files = [os.path.join(confdir, 'slack.cfg') for confdir in confdirs]
 	pyami.fileutil.check_exist_one_file(conf_files)
-	# Combine sections of the same name from all existing files in conf_files
 	configfiles = slackconfigparser.read(conf_files)
 	if printfiles:
 		print("***************************")

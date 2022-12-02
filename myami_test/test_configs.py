@@ -20,8 +20,7 @@ class TestConfigs(unittest.TestCase):
 			return type(config) == type({})
 		except IOError, e:
 			self.instrument_error = e
-		# optional unless on a host that has instrument to load
-		return True
+			return False
 
 	def testSession(self):
 		self.session_error = 'No'

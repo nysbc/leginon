@@ -171,7 +171,7 @@ class RawTransfer(filetransfer.FileTransfer):
 				# TODO sometimes this query happens before the imagedata is queriable.
 				# Need to have a delay before remove.
 				if not self.isRecentCreation(src_path):
-					self.handleBadFile(src_path, method)
+					self.cleanUp(src_path,method)
 				continue
 			if imdata == True:
 				print ' None of the found imagedata has destination starts with %s. Skipped' % (dest_head)
@@ -187,7 +187,12 @@ class RawTransfer(filetransfer.FileTransfer):
 			print '**running', src_path
 			# determine user and group of leginon data
 			filename = imdata['filename']
-			uid, gid = self._getUidGid(imdata)
+			if sys.platform == 'win32':
+				uid, gid = 100, 100
+			else:
+				stat = os.stat(image_path)
+				uid = stat.st_uid
+				gid = stat.st_gid
 			# make full dst_path
 			imname = filename + dst_suffix
 			# full path of frames
@@ -229,7 +234,6 @@ class RawTransfer(filetransfer.FileTransfer):
 		self.params = self.parseParams()
 		src_path = self.get_source_path()
 		print 'Source path:  %s' % (src_path,)
-		self.hidden_path = self.get_hidden_path()
 		dst_head = self.get_dst_head()
 		if dst_head:
 			print "Limit processing to destination frame path started with %s" % (dst_head)

@@ -623,10 +623,6 @@ class ImagePanel(wx.Panel):
 		pass
 
 	#--------------------
-	def _onCtrlLeftClick(self, evt):
-		pass
-
-	#--------------------
 	def OnLeftDown(self, evt):
 		for tool in self.tools:
 			if hasattr(tool, 'OnLeftDown'):
@@ -636,14 +632,9 @@ class ImagePanel(wx.Panel):
 	#--------------------
 	def OnLeftClick(self, evt):
 		if not evt.ShiftDown():
-			if not evt.ControlDown():
-				for tool in self.tools:
-					tool.OnLeftClick(evt)
-				self._onLeftClick(evt)
-			else:
-				for tool in self.tools:
-					tool.OnCtrlLeftClick(evt)
-				self._onCtrlLeftClick(evt)
+			for tool in self.tools:
+				tool.OnLeftClick(evt)
+			self._onLeftClick(evt)
 		else:
 			if not evt.ControlDown():
 				for tool in self.tools:
@@ -664,10 +655,6 @@ class ImagePanel(wx.Panel):
 
 	#--------------------
 	def _onShiftCtrlRightClick(self, evt):
-		pass
-
-	#--------------------
-	def _onCtrlRightClick(self, evt):
 		pass
 
 	#--------------------

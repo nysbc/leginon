@@ -782,10 +782,7 @@ class BindEventDialog(wx.Dialog):
 class RunApplicationDialog(wx.Dialog):
 	def __init__(self, parent, apps, recentapps, launchernames, launchers):
 		self.apps = apps
-		self.recent = []
-		for apname in recentapps:
-			if apname in self.apps.keys():
-				self.recent.append(apname)
+		self.recent = recentapps
 		self.launchernames = launchernames
 		self.launchers = launchers
 
@@ -796,8 +793,8 @@ class RunApplicationDialog(wx.Dialog):
 
 		self.sizer.Add(wx.StaticText(self, -1, 'Application:'), (0, 0), (1, 1),
 							wx.ALIGN_CENTER_VERTICAL)
-		if self.recent:
-			self.appchoice = wx.Choice(self, -1, choices=self.recent)
+		if recentapps:
+			self.appchoice = wx.Choice(self, -1, choices=recentapps)
 		else:
 			self.appchoice = wx.Choice(self, -1, choices=apps.keys())
 		self.sizer.Add(self.appchoice, (0, 1), (1, 1), wx.ALIGN_CENTER_VERTICAL)

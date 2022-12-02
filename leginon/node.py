@@ -28,7 +28,6 @@ import leginonconfig
 import os
 import correctorclient
 import remoteserver
-from leginon import settingsfun
 
 # testprinting for development
 testing = False
@@ -175,14 +174,12 @@ class Node(correctorclient.CorrectorClient):
 		if not hasattr(self, 'settingsclass'):
 			return
 
-		settings = self.researchDBSettings(self.settingsclass, self.name, user)
+		settings = self.reseachDBSettings(self.settingsclass, self.name, user)
 
 		# if that failed, use hard coded defaults
 		if not settings:
-			non_default = False
 			self.settings = copy.deepcopy(self.defaultsettings)
 		else:
-			non_default = True
 			# get query result into usable form
 			settings = settings[0]
 			self.settings = settings.toDict(dereference=True)
@@ -192,7 +189,7 @@ class Node(correctorclient.CorrectorClient):
 		# get current admin settings
 		admin_settings = self.getDBAdminSettings(self.settingsclass, self.name)
 
-		# check if None in any fields. These are new fields that did not have value.
+		# check if None in any fields
 		for key,value in self.settings.items():
 			if value is None:
 				if key in admin_settings and admin_settings[key] is not None:
@@ -211,27 +208,34 @@ class Node(correctorclient.CorrectorClient):
 						elif skey in self.defaultsettings[key]:
 								# use default value of the node
 								self.settings[key][skey] = copy.deepcopy(self.defaultsettings[key][skey])
-		# save settings in this session for recalling purpose.
-		# If everything is loaded from self.defaultsettings, this is not desireable.
-		if non_default:
-			# node initialization may be out of order and checking settings against other
-			# nodes is not possible.
-			self.setSettings(self.settings, False, checking=False)
 
-	def researchDBSettings(self, settingsclass, inst_alias, user=None):
-		"""
-		Return settings in database.
-		"""
-		# load the session settings in case the same user is operating more than one scope.
-		my_session = self.session
-		return settingsfun.researchDBSettings(settingsclass, inst_alias, my_session, user)
+	def reseachDBSettings(self, settingsclass, inst_alias, user=None):
+		# load the requested user settings
+		if user is None:
+			user = self.session['user']
+		qsession = leginondata.SessionData(initializer={'user': user})
+		qdata = settingsclass(initializer={'session': qsession,
+																						'name': inst_alias})
+		settings_list = self.research(qdata, results=1)
+		# if that failed, try to load default settings from DB
+		if not settings_list:
+			# try admin settings.
+			settings = self.getDBAdminSettings(settingsclass, inst_alias)
+			if settings:
+				settings_list = [settings,]
+		return settings_list
 
 	def getDBAdminSettings(self, settingsclass, inst_alias):
 		"""
 		Get one administrator settings for the node instance.
 		Returns empty dictionary if not found.
 		"""
-		return settingsfun.getDBAdminSettings(settingsclass, inst_alias)
+		admin_settings = {}
+		qdata = settingsclass(initializer={'isdefault': True, 'name': inst_alias})
+		results = self.research(qdata, results=1)
+		if results:
+			admin_settings = results[0]
+		return admin_settings
 
 	def loadSettingsByID(self, id):
 		if not hasattr(self, 'settingsclass'):
@@ -257,11 +261,17 @@ class Node(correctorclient.CorrectorClient):
 
 		# set to GUI
 
-	def setSettings(self, d, isdefault=False, checking=True):
+	def setSettings(self, d, isdefault=False):
 		self.settings = d
-		sd = settingsfun.setSettings(d, self.settingsclass, self.session, self.name, isdefault)
-		if checking:
-			self._checkSettings(sd)
+		sd = self.settingsclass.fromDict(d)
+		sd['session'] = self.session
+		sd['name'] = self.name
+		if self.session['user']['username'] == 'administrator':
+			sd['isdefault'] = True
+		else:
+			sd['isdefault'] = isdefault
+		self.publish(sd, database=True, dbforce=True)
+		self._checkSettings(sd)
 
 	def _checkSettings(self, settings):
 		if hasattr(self, 'checkSettings'):
@@ -435,13 +445,6 @@ class Node(correctorclient.CorrectorClient):
 		'''
 		session = ievent['session']
 		self.session = session
-		try:
-			# save Settings in the new session since no initializeSettings was run.
-			if hasattr(self,'settings'):
-				# EM node does not have self.settings, for example.
-				settingsfun.setSettings(self.settings, self.settingsclass, self.session, self.name, False)
-		except Exception as e:
-			self.logger.Error('Settings saving error: %e' % e)
 		# Issue #11762 send the new session to instrument proxy so that
 		# ScopeEMData and CameraEMData are saved with the new session.
 		if hasattr(self,'instrument'):

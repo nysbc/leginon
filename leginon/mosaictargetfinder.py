@@ -60,7 +60,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		'target grouping': {
 			'total targets': 10,
 			'classes': 1,
-			'group method': 'value delta',
 		},
 		'target multiple':1,
 	}
@@ -76,13 +75,13 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 			'on': True,
 			'border': 0,
 			'max': 100,
-			'min size': 10,  # used in blob-finding threshold
+			'min size': 10,
 			'max size': 10000,
-			'min mean': 1000, # used in filtering
+			'min mean': 1000,
 			'max mean': 20000,
 			'min stdev': 10,
 			'max stdev': 500,
-			'min filter size': 10, # used in filtering and sampling
+			'min filter size': 10,
 			'max filter size': 10000,
 		},
 	}
@@ -91,7 +90,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 	eventoutputs = targetfinder.ClickTargetFinder.eventoutputs + [
 			event.MosaicDoneEvent]
 	targetnames = ['acquisition','focus','preview','reference','done','Blobs', 'example']
-	target_group_methods = ['value delta','target count']
 
 	def __init__(self, id, session, managerlocation, **kwargs):
 		self.mosaicselections = {}
@@ -129,8 +127,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		self.sq_prefs = None
 		self.mosaiccreated = threading.Event()
 		self.autofinderlock = threading.Lock()
-		self.sessionclearlock = threading.Lock()
-		self.userpause = threading.Event()
 		self.presetsclient = presets.PresetsClient(self)
 
 		self.mosaic.setCalibrationClient(self.calclients[parameter])
@@ -140,14 +136,11 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 
 		self.existing_targets = {}
 		self.last_xys = [] # last acquisition targets found in autofinder
-		self.mask_xys = []
 		self.clearTiles()
-		self.autotask_type = None
 
 		self.reference_target = None
 		self.setRefreshTool(self.settings['check method']=='remote')
 
-		self.addEventInput(event.NotifyTaskTypeEvent, self.handleNotifyTaskType)
 		self.addEventInput(event.SubmitMosaicTargetsEvent, self.handleSubmitMosaicTargets)
 
 		if self.__class__ == MosaicClickTargetFinder:
@@ -159,19 +152,9 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		self.logger.debug('%s did not insert done on %d' % (self.name,targetlistdata.dbid))
 		pass
 
-	def handleSetSessionEvent(self, ievent):
-		self.sessionclearlock.acquire()
-		super(MosaicClickTargetFinder, self).handleSetSessionEvent(ievent)
-		self.clearTiles()
-		self.sessionclearlock.release()
-
-
 	def handleSubmitMosaicTargets(self, evt):
 		self.notifyTargetReceiver()
 		self.autoSubmitTargets()
-
-	def handleNotifyTaskType(self, evt):
-		self.autotask_type = evt['task']
 
 	def notifyTargetReceiver(self):
 			'''
@@ -184,14 +167,14 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 	# not complete
 	def handleTargetListDone(self, targetlistdoneevent):
 		if targetlistdoneevent:
-			self.logger.debug('Got real targetlistdone event')
+			self.logger.warning('Got real targetlistdone event')
 		else:
-			self.logger.debug('Handle fake targetlistdone event')
+			self.logger.warning('Handle fake targetlistdone event')
 		# wait until addTile thread is finished.
 		while self.autofinderlock.locked():
 			time.sleep(0.5)
-		if self.settings['create on tile change'] in ('all','final',):
-			self.createMosaicImage(True)
+		if self.settings['create on tile change'] in ('final',):
+			self.createMosaicImage()
 		if not self.hasNewImageVersion():
 			self.targetsFromDatabase()
 			# fresh atlas without acquisition targets (done or not) should run autofinder
@@ -199,33 +182,10 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 			if count == 0 and self.settings['autofinder']:
 				self.logger.debug('auto target finder')
 				self.autoTargetFinder()
-		# Pause here from gui
-		if not self.userpause.is_set():
-			msg = 'autosubmit paused by user'
-			self.logger.info(msg)
-			if self.settings['autofinder']:
-				# Send this message to slack
-				msg += ' in session %s' % self.session['name']
-				msg = '%s %s' % (self.name, msg)
-				self.outputEvent(event.NodeLogErrorEvent(message=msg))
-			self.setStatus('user input')
-		self.userpause.wait()
-		self.setStatus('processing')
-		#
 		# trigger activation of submit button in the gui.
 		self.panel.doneTargetList()
-		# auto submit targets if from auto full run.
+		# TODO: auto submit targets if from auto run.
 		self.notifyAutoDone('atlas')
-		self.setStatus('idle')
-
-	def guiPauseBeforeSubmit(self):
-		self.userpause.clear()
-
-	def guiTargetMask(self, xys):
-		'''
-		get mask fitted shape vertices in a list of (x,y) at mosaic
-		'''
-		self.mask_xys = xys
 
 	def autoTargetFinder(self):
 		"""
@@ -261,7 +221,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		xytargets['acquisition']=[]
 		###################################
 		#
-		blobs = self.filterBlobsByMask(blobs)
 		xys = self.runBlobRankFilter(blobs, xytargets)
 		message = 'found %s squares' % (len(xys),)
 		self.last_xys = xys
@@ -345,20 +304,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		"""
 		self.terminated_remote = False
 		self.userpause.set()
-		# clear targets and not really submit if not full autoscreen
-		# because submitTargets call
-		# and self.userpause.set are both activated with gui submit tool.
-		if self.autotask_type == 'atlas':
-			self.displayDatabaseTargets()
-			# reset autotask_type to None so submit on the last autorun  grid is possible.
-			self.autotask_type = None
-			# trigger onTargetsSubmitted in the gui.
-			self.panel.targetsSubmitted()
-			return
-
-		if self.mosaicimage is None:
-			self.setStatus('idle')
-			return
 
 		if self.targetlist is None:
 			self.targetlist = self.newTargetList()
@@ -425,10 +370,9 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		self.targetmap = {}
 		self.mosaic.clear()
 		self.finder_mosaic.clear()
-		self.userpause.set()
 		self.targetlist = None
-		self.clearMosaicImage()
-		self.clearFinderMosaicImage()
+		if self.settings['create on tile change'] in ('all', 'final'):
+			self.clearMosaicImage()
 
 	def addTile(self, imagedata):
 		'''
@@ -675,8 +619,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		not per image, instead we have submitTargets.
 		Each new image becomes a tile in a mosaic.
 		'''
-		while self.sessionclearlock.locked():
-			time.sleep(0.5)
 		self.logger.info('Processing inbound image data')
 		### create a new imagelist if not already done
 		targets = imagedata['target']['list']
@@ -696,7 +638,7 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 
 		if self.settings['create on tile change'] == 'all':
 			self.logger.debug('create all')
-			self.createMosaicImage(False)
+			self.createMosaicImage()
 			self.logger.debug('done create all')
 		self.autofinderlock.release()
 
@@ -816,7 +758,7 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		self.reference_target = self.getReferenceTarget()
 		self.logger.info('Mosaic loaded (%i of %i images loaded successfully)' % (i+1, ntotal))
 		if self.settings['create on tile change'] in ('all', 'final'):
-			self.createMosaicImage(True)
+			self.createMosaicImage()
 		# use currentimagedata to set TargetImageVectors for target multiple
 		self.setTargetImageVectors(self.currentimagedata)
 		self.autofinderlock.release()
@@ -839,6 +781,15 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		# scalepos is written as (r, c)
 		mospos = mosaic_instance.tile2mosaic(tile, tilepos)
 		scaledpos = mosaic_instance.scaled(mospos)
+		return scaledpos
+
+	def scaleToMosaic(self, d):
+		shape = tile.image.shape
+		drow = targetdata['delta row']
+		dcol = targetdata['delta column']
+		tilepos = drow+shape[0]/2, dcol+shape[1]/2
+		mospos = self.mosaic.tile2mosaic(tile, tilepos)
+		scaledpos = self.mosaic.scaled(mospos)
 		return scaledpos
 
 	def _mosaicToTarget(self, row, col):
@@ -875,25 +826,19 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		self.publish(targetdata, database=True)
 		return targetdata
 
-	def createMosaicImage(self, is_final=True):
+	def createMosaicImage(self):
 		self.logger.info('creating mosaic image')
 
 		self.setCalibrationParameter()
 
 		if self.settings['scale image']:
 			maxdim = self.settings['scale size']
-			if not is_final:
-				# make smaller mosaic unless it is the final display.  This
-				# reduces peak memory usage
-				maxdim = 1024
 		else:
 			maxdim = None
 		self.mosaicimagescale = maxdim
 		try:
 			self.mosaicimage = self.mosaic.getMosaicImage(maxdim)
-			if is_final:
-				# create finder mosaic image only for final display.
-				self.createFinderMosaicImage()
+			self.createFinderMosaicImage()
 		except Exception, e:
 			self.logger.error('Failed Creating mosaic image: %s' % e)
 		self.mosaicimagedata = None
@@ -912,10 +857,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		if self.remote_targeting and self.mosaicimagedata:
 			self.remote_targeting.unsetImage(self.mosaicimagedata)
 		self.mosaicimagedata = None
-
-	def clearFinderMosaicImage(self):
-		self.finder_mosaicimage = None
-		self.finder_scale_factor = 1
 
 	def uiPublishMosaicImage(self):
 		self.publishMosaicImage()
@@ -1096,24 +1037,20 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 		existing_targets.extend(xytargets['acquisition'])
 		return xytargets['example'], existing_targets
 
-	def setFinderScaleFactor(self):
-		old_maxdim = self.mosaicimagescale
-		if old_maxdim is None:
-			old_maxdim = max(self.mosaicimage.shape)
-		# no bigger than 2048
-		scale_factor = int(math.ceil(old_maxdim / 2048.0))
-		self.finder_scale_factor = scale_factor
-
 	def createFinderMosaicImage(self):
 		'''
 		Downsize mosaicimage so that it does not use too much
 		resource in blob finding.
 		'''
-		self.setFinderScaleFactor()
 		old_maxdim = self.mosaicimagescale
-		new_maxdim = old_maxdim // self.finder_scale_factor
+		if old_maxdim is None:
+			old_maxdim = max(self.mosaicimage.shape)
+		# no bigger than 2048
+		scale_factor = int(math.ceil(old_maxdim / 2048.0))
+		new_maxdim = old_maxdim // scale_factor
 		self.logger.info('Scale down mosaic to finder max dimension of %d' % new_maxdim)
 		self.finder_mosaicimage = self.finder_mosaic.getMosaicImage(new_maxdim)
+		self.finder_scale_factor = scale_factor
 		# This is not exact but appears good enough.
 		self.logger.debug('Scaling  Target mapping from shape %s to %s with setting of max size of %d' % (self.finder_mosaicimage.shape, self.mosaicimage.shape, self.settings['scale size']))
 
@@ -1195,17 +1132,6 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 			self.settings['blobs']['max filter size'] = size_max
 			self.setSettings(self.settings, False)
 			return
-
-	def filterBlobsByMask(self, blobs):
-		if len(self.mask_xys) < 3:
-			return blobs
-		s = self.finder_scale_factor
-		finder_vertices = map((lambda x: (x[1]//s,x[0]//s)),self.mask_xys)
-		new_blobs = []
-		def blob_in_polygon(x):
-			return polygon.point_inside_polygon(x['center'][0], x['center'][1], finder_vertices)
-		blobs = filter((lambda x: blob_in_polygon(x.stats)), blobs)
-		return blobs
 
 	def runBlobRankFilter(self, finder_blobs, xytargets):
 		'''
@@ -1359,42 +1285,43 @@ class MosaicClickTargetFinder(targetfinder.ClickTargetFinder, imagehandler.Image
 				self.publish(stats, database=True)
 		return good_blobs
 
-	def getGroupMethodChoices(self):
-		return self.target_group_methods
-
-	def _getBlobStatsKeyForGrouping(self):
-		return 'n'
-
-	def _getGrouperValueMinMax(self):
-		value_min = self.settings['blobs']['min filter size']
-		value_max = self.settings['blobs']['max filter size']
-		return value_min, value_max
-
-	def _setSampler(self, grouper, total_target_need):
-		return groupfun.BlobRandomSizeSampler(grouper, total_target_need, self.logger)
-
 	def sampleBlobs(self, blobs, total_targets_need):
+		'''
+		filter based on blob stats
+		'''
 		total_blobs = len(blobs)
 		if total_blobs <= total_targets_need:
 			# Nothing to do
-			self.logger.info('Number of filtered blobs (%d) < number of requested targets (%d). Use all.' % (total_blobs, total_targets_need))
 			return blobs
 		n_class = self.settings['target grouping']['classes']
-		group_method = self.settings['target grouping']['group method']
-		stats_key = self._getBlobStatsKeyForGrouping()
-		try:
-			if group_method == 'value delta':
-				grouper = groupfun.EqualValueDeltaIndexGrouper(blobs, n_class, stats_key)
-				value_min, value_max = self._getGrouperValueMinMax()
-				grouper.setValueMinMax(value_min, value_max)
-			else:
-				grouper = groupfun.EqualCountBlobIndexGrouper(blobs, n_class, stats_key)
-			grouper.groupBlobIndex()
-			sampler = self._setSampler(grouper, total_targets_need)
-			return sampler.sampleBlobs()
-		except Exception as e:
-			self.logger.error('sampling error: %s' % e)
-			return []
+		index_groups = self.groupBlobsBySize(blobs, n_class)
+		# get a list at least as long as total_targets_need
+		sampling_order = range(n_class)*int(math.ceil(total_targets_need/float(n_class)))
+		# truncate the list
+		sampling_order = sampling_order[:total_targets_need]
+		samples = []
+		sample_indices =[]
+		for s in sampling_order:
+			# random sample without replacement
+			pick = random.sample(range(len(index_groups[s])),1)[0]
+			index = index_groups[s].pop(pick)
+			samples.append(blobs[index])
+			sample_indices.append(index)
+		return samples
+
+	def groupBlobsBySize(self, blobs, n_class):
+		codes = list(map((lambda x: '%08d@%05d' % (blobs[x].stats['size'],x)), range(len(blobs))))
+		codes.sort()
+		sorted_indices = list(map((lambda x: int(x.split('@')[-1])), codes))
+		if n_class == 1:
+			return [sorted_indices,]
+		total_blobs = len(blobs)
+		range_list = groupfun.calculateIndexRangesInClassEvenDistribution(total_blobs, n_class)
+		blob_index_in_bins = []
+		for c in range(n_class):
+			start, end = range_list[c]
+			blob_index_in_bins.append(sorted_indices[start:end])
+		return blob_index_in_bins
 
 	def checkSettings(self,settings):
 		# always queuing. No need to check "wait for process" conflict
