@@ -309,6 +309,7 @@ class PresetsManager(node.Node):
 		self.recover_beamtilt = threading.Event()
 
 		# timeout thread
+		self._idle_lock = threading.Lock()
 		self.idleactive = False
 
 		self.addEventInput(event.ChangePresetEvent, self.changePreset)
@@ -321,7 +322,7 @@ class PresetsManager(node.Node):
 		self.getPresetsFromDB()
 		self.start()
 
-	def toggleInstrumentTimeout(self):
+	def toggleInstrumentTimeout(self, silent=False):
 		if self.idleactive:
 			self.idleactive = False
 			self.outputEvent(event.DeactivateNotificationEvent())
@@ -331,7 +332,7 @@ class PresetsManager(node.Node):
 			self.idleactive = True
 			tem_hostname = self.getTemHostname()
 			timeout_minutes = self.settings['idle minute']
-			self.outputEvent(event.ActivateNotificationEvent(tem_host=tem_hostname, timeout_minutes=timeout_minutes))
+			self.outputEvent(event.ActivateNotificationEvent(tem_host=tem_hostname, timeout_minutes=timeout_minutes, silent=silent))
 			self.logger.info('Idle and Instrument error notification activated')
 
 	def lock(self, n):
@@ -379,6 +380,11 @@ class PresetsManager(node.Node):
 		succeed = False
 		for i in range(failtries):
 			try:
+				pdata = self.presetByName(pname)
+				# check if tem and ccdcamera is available
+				# this helps the first ChangePresetEvent handling of autoscreen to wait for instrument to be ready
+				if pdata['tem']['name'] not in self.instrument.getTEMNames() or pdata['ccdcamera']['name'] not in self.instrument.getCCDCameraNames():
+					raise PresetChangeError('preset %s tem/camera pair is not ready' % (pname))
 				if emtarget is None or emtarget['movetype'] is None:
 					# can not set with emtarget and moveype
 					# change preset with current values
@@ -2111,14 +2117,17 @@ class PresetsManager(node.Node):
 		'''
 		Set the active status of error notification/timeout timer from manager
 		'''
+		self._idle_lock.acquire()
 		# set to the opposite of what we want
 		self.idleactive = not evt['active']
-		# then toggle on it to trigger downstream effects.
-		self.toggleInstrumentTimeout()
+		# then toggle on it to trigger downstream effects. keep it silent on slack
+		self.toggleInstrumentTimeout(silent=True)
+		self._idle_lock.release()
 
 	def handleIdleTimedOutEvent(self, evt):
+		self._idle_lock.acquire()
 		temname = None
-		self.logger.info('Idled for too long.  Finishing....')
+		self.logger.info('Idled too long.  Finishing....')
 		try:
 			presetname = self.currentpreset['name']
 			temname = self.currentpreset['tem']['name']
@@ -2143,7 +2152,9 @@ class PresetsManager(node.Node):
 		else:
 			self.logger.error('No valid preset to set tem to close column valve')
 		# deactivate idle and error notification
-		self.toggleInstrumentTimeout()
+		if self.idleactive:
+			self.toggleInstrumentTimeout()
+		self._idle_lock.release()
 
 	def handleUpdatePresetEvent(self, evt):
 		presetname = evt['name']

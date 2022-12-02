@@ -39,6 +39,9 @@ except ImportError:
 configs = moduleconfig.getConfigured('fei.cfg')
 configpath = moduleconfig.getConfigPath('fei.cfg')
 
+HAS_CFEG = False
+if HAS_CFEG:
+	from pyscope import fei_advscripting
 class MagnificationsUninitialized(Exception):
 	pass
 
@@ -67,6 +70,7 @@ class Tecnai(tem.TEM):
 		self.corrected_alpha_stage = self.getFeiConfig('stage','do_stage_alpha_backlash')
 		self.alpha_backlash_delta = self.getFeiConfig('stage','stage_alpha_backlash_angle_delta')
 		self.normalize_all_after_setting = self.getFeiConfig('optics','force_normalize_all_after_setting')
+		self.cold_feg_flash_types = {'low':0,'high':1}
 		try:
 			com_module.CoInitializeEx(com_module.COINIT_MULTITHREADED)
 		except:
@@ -85,6 +89,14 @@ class Tecnai(tem.TEM):
 		if self.tecnai is None:
 			raise RuntimeError('unable to initialize Tecnai interface')
 		self.tem_constants = comtypes.client.Constants(self.tecnai)
+
+		try:
+			self.adv_instr = fei_advscripting.connectToFEIAdvScripting().instr
+			self.source = self.adv_instr.Source
+		except Exception as e:
+			#print 'unable to initialize Advanced Scriptiong interface, %s' % e
+			self.adv_instr = None
+			self.source = None
 		try:
 			self.tom = comtypes.client.CreateObject('TEM.Instrument.1')
 		except com_module.COMError, (hr, msg, exc, arg):
@@ -357,7 +369,58 @@ class Tecnai(tem.TEM):
 
 	def getScreenCurrent(self):
 		return float(self.tecnai.Camera.ScreenCurrent)
-	
+
+	def hasColdFeg(self):
+		if self.source:
+			try:
+				# test on lowT type.
+				should_flash = self.source.Flashing.IsFlashingAdvised(self.cold_feg_flash_types['low'])
+			except AttributeError:
+				return False
+			except Exception as e:
+				print('hasColdFeg exception %s' % e)
+				return False
+			return True
+
+	def getFlashingAdvised(self, flash_type):
+		try:
+			flash_type_constant = self.cold_feg_flash_types[flash_type]
+			should_flash = self.source.Flashing.IsFlashingAdvised(flash_type_constant)
+		except AttributeError as e:
+			print(e)
+			return False
+		except KeyError:
+			print('flash type can only be %s' % list(self.cold_feg_flash_types.keys()))
+			return False
+		except Exception as e:
+			print('other getFlashAdvised exception %s' % e)
+			return False
+		return should_flash
+
+	def getColdFegFlashing(self):
+		return 'off'
+
+	def setColdFegFlashing(self,state):
+		# 'on' starts flashing, 'off' stops flashing
+		# tfs flashing can not be stopped.
+		if not self.hasColdFeg():
+			return
+		# low temperature (lowT) flashing can be done any time even if not advised.
+		# highT flashing can only be done if advised.
+		# It will give COMError if tried
+		if state != 'on':
+			# tfs flashing can not be stopped.
+			return
+		for flash_type in ('high','low'):
+			if self.getFlashingAdvised(flash_type):
+				flash_type_constant = self.cold_feg_flash_types[flash_type]
+				try:
+					self.source.Flashing.PerformFlashing(flash_type_constant)
+					# no need to do lowT flashing if highT is done
+					break
+				except Exception as e:
+					raise RuntimeError(e)
+
 	def getGunTilt(self):
 		value = {'x': None, 'y': None}
 		value['x'] = float(self.tecnai.Gun.Tilt.X)
@@ -1968,9 +2031,18 @@ class Tecnai(tem.TEM):
 		valuecap = value[0].upper()+value[1:]
 		methodname = 'getAutoitBeamstop%sExePath' % (valuecap)
 		exepath = getattr(self,methodname)()
+		max_trials = 5
 		if exepath and os.path.isfile(exepath):
-			subprocess.call(exepath)
-			time.sleep(2.0)
+			trial = 1
+			while value != self.getBeamstopPosition():
+				subprocess.call(exepath)
+				time.sleep(2.0)
+				if self.getDebugAll() and trial > 1:
+					print('beamstop positioning trial %d' % trial)
+				if trial > max_trials:
+					raise RuntimeError('Beamstop setting to %s failed %d times' % (value, trial))
+				trial += 1
+
 		else:
 			pass
 
@@ -2024,6 +2096,12 @@ class Glacios(Arctica):
 	name = 'Glacios'
 	column_type = 'talos'
 	use_normalization = True
+
+class EFGlacios(Arctica):
+	name = 'EF-Glacios'
+	column_type = 'talos'
+	use_normalization = True
+	projection_lens_program = 'EFTEM'
 
 #### Diffraction Instrument
 class DiffrTecnai(Tecnai):

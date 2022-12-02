@@ -89,7 +89,7 @@ def setImageFilename(imagedata):
 def isSkipGrTileId():
 	is_skip = False
 	try:
-		is_skip = moduleconfig.getConfigured('leginon_session.cfg', 'leginon')['filename']['skip_gr_tile_id']
+		is_skip = moduleconfig.getConfigured('leginon_session.cfg', 'leginon', True)['filename']['skip_gr_tile_id']
 	except IOError as e:
 		pass
 	except KeyError:
@@ -1100,7 +1100,10 @@ class Acquisition(targetwatcher.TargetWatcher):
 
 	def park(self):
 		# also go to highest mag.
-		self.parkAtHighMag()
+		try:
+			self.parkAtHighMag()
+		except Exception as e:
+			self.logger.warning('preset setting error during parking, not fatal')
 		super(Acquisition,self).park()
 		
 	def notifyNodeBusy(self):

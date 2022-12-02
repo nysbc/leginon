@@ -903,6 +903,8 @@ class SetupWizard(wx.wizard.Wizard):
 			#Issue #4634 use insert method so that self.session becomes sinedon
 			#query result after this first insert.
 			self.session.insert()
+			#Reservation can be canceled since self.session is inserted
+			leginon.session.cancelReservation()
 			projectid = self.projectpage.getSelectedProjectId()
 			project_experiment = self.setup.linkSessionProject(self.session['name'], projectid)
 			self.publish(project_experiment, database=True)
@@ -1120,17 +1122,8 @@ class Setup(object):
 		return _indexBy('name', projectdatalist)
 
 	def createSession(self, user, name, description, directory):
-		imagedirectory = os.path.join(leginon.leginonconfig.unmapPath(directory), name, 'rawdata').replace('\\', '/')
-		framepath = leginon.ddinfo.getRawFrameSessionPathFromSessionPath(imagedirectory)
-		initializer = {
-			'name': name,
-			'comment': description,
-			'user': user,
-			'image path': imagedirectory,
-			'frame path': framepath,
-			'hidden': False,
-		}
-		return leginon.leginondata.SessionData(initializer=initializer)
+		# get unpublished new SessionData instance
+		return leginon.session.createSession(user, name, description, directory, holder=None, hidden=False)
 
 	def linkSessionProject(self, sessionname, projectid):
 		if self.projectdata is None:
@@ -1146,14 +1139,23 @@ class Setup(object):
 
 	def getTEM(self,hostname, no_sim=True):
 			temdata = None
+			diffrtemdata = None
 			r = leginon.leginondata.InstrumentData(hostname=hostname).query()
 			if r:
 				for idata in r:
+					if idata['hidden']:
+						continue
 					if no_sim and 'Sim' in idata['name']:
 						continue
 					if idata['cs']:
-						temdata = idata
-						break
+						if 'Diff' not in idata['name']:
+							temdata = idata
+							break
+						else:
+							diffrtemdata = idata
+			if not temdata and diffrtemdata:
+				# use diffraction tem if that is the only one available.  Unlikely case.
+				temdata = diffrtemdata
 			return temdata
 
 	def setC2Size(self,session,clients,c2size):
