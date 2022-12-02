@@ -20,7 +20,7 @@ Local $mActionWaitTime = 3000 ; millisecond after click
 Local $aButPosXs[3] = [312, 335, 355]
 ; Softwareversion 2.7.1  has an extra button more than the versions before.
 ; TODO get it from fei.cfg
-Local $iExtraButton = 0
+Local $iExtraButton = 1
 Local $iEButtonPosX = $iExtraButton * 27
 ;---------------Finish Scope-specific Settings------------------------
 ; Take the extra buttons into account.
