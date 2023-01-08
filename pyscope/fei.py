@@ -39,9 +39,16 @@ except ImportError:
 configs = moduleconfig.getConfigured('fei.cfg')
 configpath = moduleconfig.getConfigPath('fei.cfg')
 
-HAS_CFEG = False
+def configHasColdFeg():
+	if 'source' in configs and 'has_cold_feg' in configs['source'] and configs['source']['has_cold_feg']==True:
+		return True
+	return False
+
+HAS_CFEG = configHasColdFeg()
+
 if HAS_CFEG:
 	from pyscope import fei_advscripting
+
 class MagnificationsUninitialized(Exception):
 	pass
 
@@ -378,16 +385,16 @@ class Tecnai(tem.TEM):
 			except AttributeError:
 				return False
 			except Exception as e:
-				print('hasColdFeg exception %s' % e)
 				return False
 			return True
+		return False
 
 	def getFlashingAdvised(self, flash_type):
+		advised_only = self.getFeiConfig('source','flash_cold_feg_only_if_advised')
 		try:
 			flash_type_constant = self.cold_feg_flash_types[flash_type]
 			should_flash = self.source.Flashing.IsFlashingAdvised(flash_type_constant)
 		except AttributeError as e:
-			print(e)
 			return False
 		except KeyError:
 			print('flash type can only be %s' % list(self.cold_feg_flash_types.keys()))
@@ -395,6 +402,12 @@ class Tecnai(tem.TEM):
 		except Exception as e:
 			print('other getFlashAdvised exception %s' % e)
 			return False
+		if advised_only:
+			return should_flash
+		else:
+			if flash_type == 'low':
+				# only low temp can flash without advised.
+				return True
 		return should_flash
 
 	def getColdFegFlashing(self):
@@ -420,6 +433,22 @@ class Tecnai(tem.TEM):
 					break
 				except Exception as e:
 					raise RuntimeError(e)
+
+	def getColdFegBeamCurrent(self):
+		# Cold FEG beam current is used to decide whether to flash or not.
+		# Unit is Amp.  Returns -1.0 if not available
+		if self.source and self.hasColdFeg():
+			return float(self.source.BeamCurrent)
+		return -1.0
+
+	def getExtractorVoltage(self):
+		# FEG extractor voltage. Unit is Voltage
+		# Returns -1.0 if not available
+		if self.source:
+			try:
+				return float(self.source.ExtractorVoltage)
+			except:
+				return -1.0
 
 	def getGunTilt(self):
 		value = {'x': None, 'y': None}

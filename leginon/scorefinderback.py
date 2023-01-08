@@ -153,9 +153,12 @@ class HoleFinder(icefinderback.IceFinder):
 		self.loadHoles()
 	
 	def _runExternalHoleFinder(self,config):
-		script = config['script']
-		if not script:
-			raise ValueError('%s invalid.' % script)
+		scoring_script = config['script']
+		if not scoring_script:
+			raise ValueError('%s invalid.' % scoring_script)
+		shell_source = '/bin/bash'
+		if scoring_script.endswith('csh'):
+			shell_source = '/bin/csh'
 		job_basename = config['job_name']
 		out_dir = config['out_dir']
 		input_mrc_path = config['in_path']
@@ -163,8 +166,8 @@ class HoleFinder(icefinderback.IceFinder):
 		if os.path.isfile(outpath):
 			os.remove(outpath)
 		# This process must create the output '%s.json' % job_basename at outpath
-		cmd = 'source %s %s %s %s' % (script, job_basename, input_mrc_path, out_dir)
-		proc = subprocess.Popen(cmd, shell=True)
+		cmd = 'source %s %s %s %s' % (scoring_script, job_basename, input_mrc_path, out_dir)
+		proc = subprocess.Popen(cmd, shell=True, executable=shell_source)
 		proc.wait()
 
 	def jsonCenterToHoleCenter(self, json_center):

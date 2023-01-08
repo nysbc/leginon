@@ -21,7 +21,7 @@ Func ExportSeries()
    ;ControlClick($my_window,"",$my_control)
    Local $aWinPos = WinGetPos($my_window)
    ; This only works if Export Series Shortcut is expanded
-   Local $aExportPos[2] = [49, 290]
+   Local $aExportPos[2] = [47, 273]
    MouseClick($MOUSE_CLICK_LEFT, $aWinPos[0]+$aExportPos[0],$aWinPos[1]+$aExportPos[1])
    Sleep(1000)
    ;Select current series to exported. only one choice. Just click ok
@@ -36,7 +36,6 @@ Func SetExportParameters()
    $sControl = "[CLASS:GXWND;INSTANCE:1]"
    $aWinPos = WinGetPos($sTitle)
    $aConPos = ControlGetPos($sTitle, "", $sControl)
-   MsgBox(0, "window position", $aWinPos[0] & "," & $aWinPos[1] & " Control" & $aConPos[0] & "," & $aConPos[1])
    ;Filename Control
    ;Won't work: ControlSetText($sTitle,"","[CLASS:Edit;INSTANCE:1]", "newfilename",0)
    ;Use Mouse Click and KeySend
@@ -45,7 +44,7 @@ Func SetExportParameters()
    Else
 	  Local $sTargetCode = 'test_t'
    EndIf
-   Local $aPos[2] = [$aWinPos[0]+$aConPos[0]+360,$aWinPos[1]+$aConPos[1]+71]
+   Local $aPos[2] = [$aWinPos[0]+$aConPos[0]+210,$aWinPos[1]+$aConPos[1]+60]
    MouseClick($MOUSE_CLICK_LEFT, $aPos[0],$aPos[1])
    Sleep(200)
    Send("{END}")
@@ -58,10 +57,10 @@ Func SetExportParameters()
    Send("{TAB}")
 
    ; File Format Control could not setText.  Probably not getting the string correctly.
-   Local $aPos[2] = [$aWinPos[0]+$aConPos[0]+220,$aWinPos[1]+$aConPos[1]+91]
+   Local $aPos[2] = [$aWinPos[0]+$aConPos[0]+220,$aWinPos[1]+$aConPos[1]+80]
    MouseClick($MOUSE_CLICK_LEFT, $aPos[0],$aPos[1])
    ; Raw Binary
-   MouseClick($MOUSE_CLICK_LEFT, $aPos[0],$aPos[1]+50)
+   MouseClick($MOUSE_CLICK_LEFT, $aPos[0],$aPos[1]+45)
    Sleep(500)
    ;OK
    ControlClick($sTitle,"","[CLASS:Button;INSTANCE:1]")
