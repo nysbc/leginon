@@ -946,7 +946,7 @@ class Falcon3EC(Falcon3):
 	
 class Falcon4(Falcon3):
 	name = 'Falcon4'
-	camera_name = 'EF-Falcon'
+	camera_name = 'BM-Falcon'
 	binning_limits = [1,2,4]
 	electron_counting = False
 	intensity_averaged = True
@@ -1013,6 +1013,20 @@ class Falcon4EC(Falcon4):
 		# with the possibility of using EER, this is better left
 		# as None and use NumberOfFrames in frame processing
 		return None
+
+	def getNormImagePath(self):
+		"""
+		return the path for the latest gain file.
+		"""
+		norm_dir = self.getFeiConfig('camera','eer_gain_reference_dir')
+		if not os.path.isdir(norm_dir):
+			return None
+		pattern = os.path.join(norm_dir,'*.gain')
+		files = glob.glob(pattern)
+		files.sort()
+		if len(files) == 0:
+			return None
+		return files[-1]
 
 class Selectris(object):
 	def setup(self, ef_pointer):
