@@ -981,25 +981,6 @@ class Falcon4(Falcon3):
 	def getSaveEer(self):
 		return self.frame_format == 'eer' and self.electron_counting
 
-class Falcon4ef(Falcon4):
-	name = 'Falcon4'
-	camera_name = 'EF-Falcon'
-	binning_limits = [1,2,4]
-	electron_counting = False
-	intensity_averaged = True
-	base_frame_time = 0.02907 # seconds
-	physical_frame_rate = 250 # rolling shutter frames per second
-
-	def __init__(self):
-		super(Falcon4ef, self).__init__()
-		if self.ef is None:
-			raise RuntimeError('TFS energy filter not available')
-		self.ef_control = Selectris()
-		self.ef_control.setup(self.ef)
-		for attr_name in dir(self.ef_control):
-			if attr_name.startswith('get') or attr_name.startswith('set'):
-				setattr(self,attr_name, getattr(self.ef_control,attr_name))
-
 class Falcon4EC(Falcon4):
 	name = 'Falcon4EC'
 	camera_name = 'BM-Falcon'
@@ -1100,6 +1081,25 @@ class Selectris(object):
 		if value < begin or value > end:
 			raise RuntimeError('energy filter offset %.1f out of range' % value)
 		self.ht_shift.EnergyShift = value
+
+class Falcon4ef(Falcon4):
+	name = 'Falcon4'
+	camera_name = 'EF-Falcon'
+	binning_limits = [1,2,4]
+	electron_counting = False
+	intensity_averaged = True
+	base_frame_time = 0.02907 # seconds
+	physical_frame_rate = 250 # rolling shutter frames per second
+
+	def __init__(self):
+		super(Falcon4ef, self).__init__()
+		if self.ef is None:
+			raise RuntimeError('TFS energy filter not available')
+		self.ef_control = Selectris()
+		self.ef_control.setup(self.ef)
+		for attr_name in dir(self.ef_control):
+			if attr_name.startswith('get') or attr_name.startswith('set'):
+				setattr(self,attr_name, getattr(self.ef_control,attr_name))
 
 class Falcon4ECef(Falcon4EC):
 	name = 'Falcon4EC'
