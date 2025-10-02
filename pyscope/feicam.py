@@ -162,7 +162,7 @@ class FeiCam(ccdcamera.CCDCamera):
 			# nor the capacity.
 			if self.camera_capabilities.SupportsEER:
 				config_eer = self.getFeiConfig('camera','save_eer')
-				if config_eer is True:
+				if config_eer is True and self.electron_counting is True:
 					fformat = 'eer'
 					self.camera_settings.EER = True
 		except:
