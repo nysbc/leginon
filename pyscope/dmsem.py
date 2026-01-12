@@ -1046,3 +1046,23 @@ class GatanK3(GatanK2Base):
 		# pixel size on Gatan K3 as super resolution.  TODO: need confirmation.
 		return {'x': 2.5e-6, 'y': 2.5e-6}
 
+class GatanAlpine(GatanK3):
+	# Alpine size is in super resolution
+	binning_limits = [1,2,4,8]
+	soft_crop = True
+	name = 'GatanAlpine'
+	config_opt_name = 'alpine'
+	try:
+		# Not yet transition to always use k3
+		cameraid = configs[config_opt_name]['camera_id']
+		if cameraid is None:
+			cameraid = configs['k2']['camera_id']
+	except:
+		pass
+	readmodes = {'linear': 3, 'super resolution': 4}
+	ed_mode = 'super resolution'
+	if simulation:
+		hw_proc = 'none'
+	else:
+		hw_proc = 'dark+gain'
+
