@@ -13,10 +13,10 @@ require_once "inc/stats.inc";
 
 $defaultId= 1445;
 $defaultpreset='enn';
-$sessionId= ($_GET['Id']) ? $_GET[Id] : $defaultId;
-$preset = ($_GET['preset']) ? $_GET[preset] : $defaultpreset;
+$sessionId= ($_GET['Id']) ? $_GET["Id"] : $defaultId;
+$preset = ($_GET['preset']) ? $_GET["preset"] : $defaultpreset;
 $viewdata = ($_GET['vdata']==1) ? true : false;
-$viewsql = $_GET[vs];
+$viewsql = $_GET["vs"];
 
 #$histogram= true;
 $histaxis=($_GET['haxis']) ? $_GET['haxis'] : 'y';

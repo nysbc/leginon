@@ -159,7 +159,7 @@ function createData() {
 		exit;
 	}
 
-	$preset=$_GET[preset];
+	$preset=$_GET["preset"];
 	// --- find image
 	$newimage = $leginondata->findImage($imgId, $preset);
 	$parentimageId = $newimage[id];

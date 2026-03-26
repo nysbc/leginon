@@ -19,7 +19,7 @@ checkExptAccessPrivilege($expId,'data');
 
 // --- Set  experimentId
 // $lastId = $leginondata->getLastSessionId();
-// $sessionId = (empty($_GET[Id])) ? $lastId : $_GET[sessionId];
+// $sessionId = (empty($_GET["Id"])) ? $lastId : $_GET["sessionId"];
 $sessioninfo = $leginondata->getSessionInfo($sessionId);
 $title = $sessioninfo[Name];
 //$presets = $leginondata->getDatalabels($sessionId);

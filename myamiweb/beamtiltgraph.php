@@ -16,9 +16,9 @@ require_once "inc/image.inc";
 require_once "inc/leginon.inc";
 
 $defaultId= 7623;
-$sessionId= ($_GET[Id]) ? $_GET[Id] : $defaultId;
+$sessionId= ($_GET["Id"]) ? $_GET["Id"] : $defaultId;
 $viewdata = ($_GET['vdata']==1) ? true : false;
-$viewsql = $_GET[vs];
+$viewsql = $_GET["vs"];
 
 // :TODO: the conversion here is hardcoded for now.  Need to use the
 // database query result eventually.

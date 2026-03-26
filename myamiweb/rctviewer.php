@@ -7,7 +7,7 @@ if (defined('PROCESSING')) {
 	$ptcl = (@require_once "inc/particledata.inc") ? true : false;
 }
 
-$sessionId = ($_POST[sessionId]) ? $_POST[sessionId] : $_GET[expId];
+$sessionId = ($_POST[sessionId]) ? $_POST[sessionId] : $_GET["expId"];
 $projectId = ($_POST[projectId]) ? $_POST[projectId] : 'all';
 $imageId = $_POST[imageId];
 $preset = $_POST[$_POST[controlpre]];

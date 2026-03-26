@@ -42,7 +42,7 @@ if (is_array($sel_channels)) {
 }
 
 $defaultId= 1445;
-$sessionId= ($_GET[Id]) ? $_GET[Id] : $defaultId;
+$sessionId= ($_GET["Id"]) ? $_GET["Id"] : $defaultId;
 $maxtemp= (is_numeric($_POST['maxr'])) ? $_POST['maxr'] 
 		: (is_numeric($_GET['maxr']) ? $_GET['maxr'] : false);
 $mintemp= (is_numeric($_POST['minr'])) ? $_POST['minr'] 
@@ -51,7 +51,7 @@ $mintemp= (is_numeric($_POST['minr'])) ? $_POST['minr']
 
 // --- Set  experimentId
 // $lastId = $leginondata->getLastSessionId();
-// $sessionId = (empty($_GET[Id])) ? $lastId : $_GET[sessionId];
+// $sessionId = (empty($_GET["Id"])) ? $lastId : $_GET["sessionId"];
 $sessioninfo = $leginondata->getSessionInfo($sessionId);
 $title = $sessioninfo[Name];
 
