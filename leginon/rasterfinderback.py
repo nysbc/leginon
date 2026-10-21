@@ -156,7 +156,7 @@ class HoleFinder(icefinderback.IceFinder):
 		xspacing = c['spacing x']
 		yspacing = c['spacing y']
 		x0 = c['center x']
-		y0 = c['center x']
+		y0 = c['center y']
 		radians = c['angle']
 
 		# center set to image center if None
